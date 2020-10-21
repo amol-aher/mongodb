@@ -306,3 +306,444 @@ db.inventory.find({ $or: [ { qty: { $lt: 25 } }, { price: 10 } ] })
 
 /* $or versus $in */
 /* When using $or with <expression> that are equality checks for value of the same field, use $in instead of $or operator.  */
+
+
+/* Element Query Operators */
+
+/* $exists */
+/* When <boolean> is true, $exists matches the documents that contain the field, including documents where field value is null. If <boolean> is false, query return only those documents that do not contain that field */ 
+/* $exists and Not Equal To */
+/* Below query will return documents where qty field exists and its value does not equal 5 or 15 */
+db.inventory.find( { qty: { $exists: true, $nin: [5, 15] }} )
+/* => { "_id" : ObjectId("5f8fa81bd2c948ad7d81e78f"), "item" : { "name" : "journal", "author" : "b1" }, "qty" : 25, "size" : { "h" : 14, "w" : 21, "uom" : "cm" }, "status" : "A", "tags" : [   
+  "A", "B", "C" ], "price" : 10 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e790"), "item" : { "name" : "notebook", "author" : "a1" }, "qty" : 50, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "status" : "A", "tags" : [ "P", "Q" ], "price" : 40 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e791"), "item" : { "name" : "paper", "author" : "x1" }, "qty" : 100, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "status" : "D", "tags" : [ [ "A", "B" ], "C" ], "price" : 50 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e792"), "item" : { "name" : "planner", "author" : "c1" }, "qty" : 75, "size" : { "h" : 22.85, "w" : 30, "uom" : "cm" }, "status" : "D", "tags" : [ "P", "Q" ], "price" : 1.5 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e793"), "item" : { "name" : "postcard", "author" : "d1" }, "qty" : 45, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "status" : "A", "tags" : [   "X", "Y" ], "price" : 10.3 } */
+
+/* Null Values */
+/* Below query results in those documents which have qty field including documents whose field qty contains null value */
+db.inventory.find({ qty: { $exists: true } })
+/* => { "_id" : ObjectId("5f8fa81bd2c948ad7d81e78f"), "item" : { "name" : "journal", "author" : "b1" }, "qty" : 25, "size" : { "h" : 14, "w" : 21, "uom" : "cm" }, "status" : "A", "tags" : [ 
+  "A", "B", "C" ], "price" : 10 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e790"), "item" : { "name" : "notebook", "author" : "a1" }, "qty" : 50, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "status" : "A", "tags" : [ "P", "Q" ], "price" : 40 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e791"), "item" : { "name" : "paper", "author" : "x1" }, "qty" : 100, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "status" : "D", "tags" : [ [ "A", "B" ], "C" ], "price" : 50 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e792"), "item" : { "name" : "planner", "author" : "c1" }, "qty" : 75, "size" : { "h" : 22.85, "w" : 30, "uom" : "cm" }, "status" : "D", "tags" : [ "P", "Q" ], "price" : 1.5 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e793"), "item" : { "name" : "postcard", "author" : "d1" }, "qty" : 45, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "status" : "A", "tags" : [ "X", "Y" ], "price" : 10.3 } */  
+
+/* $exists: false */
+/* Below query will return documents that do not have qty field */
+db.inventory.find({ qty: { $exists: false } })
+/* => { "_id" : ObjectId("5f8fa81bd2c948ad7d81e794"), "item" : { "name" : "weddingcard", "author" : "d1" }, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "status" : "A", "tags" : [ "X", "Y" ], "price" : 40 } */
+
+Evaluation query operators
+
+$expr: Allows use of aggregation expressions within the query language
+$expr can build query expressions that compare fields from same document in $match stage
+  1. If $match stage is part of $lookup stage, $expr can compare fields using let variables
+  2. $expr only uses indexes on the from collection for equality matches in $match stage
+  3. $expr does not support multikey indexes
+
+Dataset:
+db.monthlyBudget.insertMany([
+  { "category" : "food", "budget": 400, "spent": 450 },
+  { "category" : "drinks", "budget": 100, "spent": 150 },
+  { "category" : "clothes", "budget": 100, "spent": 50 },
+  { "category" : "misc", "budget": 500, "spent": 300 },
+  { "category" : "travel", "budget": 200, "spent": 650 }
+])
+
+Compare two fields from single document
+Below query results containg the documents where spent amount exceeds budget 
+db.monthlyBudget.find( { $expr: { $gt: ['$spent', '$budget'] } } )
+=> { "_id" : ObjectId("5f8fad0ed2c948ad7d81e795"), "category" : "food", "budget" : 400, "spent" : 450 }
+  { "_id" : ObjectId("5f8fad0ed2c948ad7d81e796"), "category" : "drinks", "budget" : 100, "spent" : 150 }
+  { "_id" : ObjectId("5f8fad0ed2c948ad7d81e799"), "category" : "travel", "budget" : 200, "spent" : 650 }
+
+Using $expr with conditional statements
+Some queries require ability to execute conditional logic when defining a query filter. The aggregation framework provides the $cond operator to express conditional statements. By using $expr with $cond operator, we can specify conditional filter for our query statement.
+
+Dataset: 
+db.supplies.insertMany([
+   { "item" : "binder", "qty" : NumberInt("100"), "price" : NumberDecimal("12") },
+   { "item" : "notebook", "qty" : NumberInt("200"), "price" : NumberDecimal("8") },
+   { "item" : "pencil", "qty" : NumberInt("50"), "price" : NumberDecimal("6") },
+   { "item" : "eraser", "qty" : NumberInt("150"), "price" : NumberDecimal("3") },
+   { "item" : "legal pad", "qty" : NumberInt("42"), "price" : NumberDecimal("10") }
+])
+
+Assume that for upcoming sale next month, we want to discount the prices such that,
+1. If qty is >= 100, discounted price will be 0.5 of the price
+2. If qty < 100, discounted price will be 0.75 of price
+Before applying discounts, we want to know which items in supplies collection have a discounted price of less than 5
+
+Below example uses $expr with $cond to calcualte discounted price based on qty and $lt to return documents whose calculated discounted price is less than NumberDecimal('5')
+let discountedPrice = {
+  $cond: {
+    if: { $gte: [ '$qty', 100 ] },
+    then: { $multiply: [ '$price', NumberDecimal('0.50') ] },
+    else: { $multiply: [ '$price', NumberDecimal('0.75') ] }
+  }
+}
+db.supplies.find( { $expr: { $lt: [ discountedPrice, NumberDecimal('5') ] } } )
+=> { "_id" : ObjectId("5f8fae3ed2c948ad7d81e79b"), "item" : "notebook", "qty" : 200, "price" : NumberDecimal("8") }
+  { "_id" : ObjectId("5f8fae3ed2c948ad7d81e79c"), "item" : "pencil", "qty" : 50, "price" : NumberDecimal("6") }
+  { "_id" : ObjectId("5f8fae3ed2c948ad7d81e79d"), "item" : "eraser", "qty" : 150, "price" : NumberDecimal("3") }
+
+Note: Even though $cond calculates effective discounted price, that price is not reflected in the returned documents. Instead, the returned documents represent the matching documents in theor original state. Query didnot return binder & legal pad documents as their discounted price was greater than 5
+
+$jsonSchema
+$jsonSchema operator matches documents that satisfy the specified JSON schema
+
+Schema Validations
+db.createCollection('students', {
+  validator: {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['name', 'year', 'major', 'address'],
+      properties: {
+        name: {
+          bsonType: 'string',
+          description: 'must be string and is required'
+        },
+        year: {
+          bsonType: 'int',
+          minimum: 2017,
+          maximum: 3017,
+          description: 'must be an integer in [2017, 3017] and is required'
+        },
+        major: {
+          enum: ['Math', 'English', 'History', null],
+          description: 'can only be one of the enum value and is required'
+        },
+        gpa: {
+          bsonType: 'double',
+          description: 'must be double if field exists'
+        },
+        address: {
+          bsonType: 'object',
+          required: ['city'],
+          properties: {
+            street: {
+              bsonType: 'string',
+              description: 'must be string if field exists'
+            },
+            city: {
+              bsonType: 'string',
+              description: 'must be string and is requried'
+            }
+          }
+        }
+      }
+    }
+  }
+})
+
+As per the given validation schema, below query will fail because gps needs to be double and we are passing integer
+db.students.insert({
+  name: 'Alice',
+  year: NumberInt(2019),
+  major: 'History',
+  gpa: NumberInt(10),
+  address: {
+    city: 'NYC',
+    street: '33rd Street'
+  }
+})
+=> WriteResult({
+    "nInserted" : 0,
+    "writeError" : {
+      "code" : 121,
+      "errmsg" : "Document failed validation"
+    }
+  })
+
+Query Conditions
+We can use $jsonSchema in query conditions for read and write operations to find documents in the collection that satisfy specified schema
+Dataset:
+db.inventory.insertMany([
+   { item: "journal", qty: NumberInt(25), size: { h: 14, w: 21, uom: "cm" }, instock: true },
+   { item: "notebook", qty: NumberInt(50), size: { h: 8.5, w: 11, uom: "in" }, instock: true },
+   { item: "paper", qty: NumberInt(100), size: { h: 8.5, w: 11, uom: "in" }, instock: 1 },
+   { item: "planner", qty: NumberInt(75), size: { h: 22.85, w: 30, uom: "cm" }, instock: 1 },
+   { item: "postcard", qty: NumberInt(45), size: { h: 10, w: 15.25, uom: "cm" }, instock: true },
+   { item: "apple", qty: NumberInt(45), status: "A", instock: true },
+   { item: "pears", qty: NumberInt(50), status: "A", instock: true }
+])
+
+let mySchema = {
+  required: ['item', 'qty', 'instock', 'size'],
+  properties: {
+    item: { bsonType: 'string' },
+    qty: { bsonType: 'int' },
+    size: {
+      bsonType: 'object',
+      required: ['uom'],
+      properties: {
+        uom: { bsonType: 'string' },
+        h: { bsonType: 'double' },
+        w: { bsonType: 'double' }
+      }
+    },
+    instock: { bsonType: 'bool' }
+  }
+}
+
+We can use above schema to find all documents that satisfy mySchema
+db.inventory.find( { $jsonSchema: mySchema } ) OR db.inventory.aggregate( [ { $match: { $jsonSchema: mySchema } } ] )
+=> { "_id" : ObjectId("5f8fb617d2c948ad7d81e7a7"), "item" : "journal", "qty" : 25, "size" : { "h" : 14, "w" : 21, "uom" : "cm" }, "instock" : true }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7a8"), "item" : "notebook", "qty" : 50, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "instock" : true }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7ab"), "item" : "postcard", "qty" : 45, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "instock" : true }
+
+We can use $jsonSchema with $nor to find all documents that do not satisfy schema
+db.inventory.find( { $nor: [{ $jsonSchema: mySchema }] } )
+=> { "_id" : ObjectId("5f8fa81bd2c948ad7d81e78f"), "item" : { "name" : "journal", "author" : "b1" }, "qty" : 25, "size" : { "h" : 14, "w" : 21, "uom" : "cm" }, "status" : "A", "tags" : [ "A", "B", "C" ], "price" : 10 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e790"), "item" : { "name" : "notebook", "author" : "a1" }, "qty" : 50, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "status" : "A", "tags" : [ "P", "Q" ], "price" : 40 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e791"), "item" : { "name" : "paper", "author" : "x1" }, "qty" : 100, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "status" : "D", "tags" : [ [ "A", "B" ], "C" ], "price" : 50 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e792"), "item" : { "name" : "planner", "author" : "c1" }, "qty" : 75, "size" : { "h" : 22.85, "w" : 30, "uom" : "cm" }, "status" : "D", "tags" : [ "P", "Q" ], "price" : 1.5 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e793"), "item" : { "name" : "postcard", "author" : "d1" }, "qty" : 45, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "status" : "A", "tags" : [ "X", "Y" ], "price" : 10.3 }
+  { "_id" : ObjectId("5f8fa81bd2c948ad7d81e794"), "item" : { "name" : "weddingcard", "author" : "d1" }, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "status" : "A", "tags" : [ "X", "Y" ], "price" : 40 }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7a9"), "item" : "paper", "qty" : 100, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "instock" : 1 }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7aa"), "item" : "planner", "qty" : 75, "size" : { "h" : 22.85, "w" : 30, "uom" : "cm" }, "instock" : 1 }
+
+We can also modify documents that do not satisfy the schema
+db.inventory.updateMany( { $nor: [ { $jsonSchema: mySchema } ] }, { $set: { isValid: false } } )
+=> { "acknowledged" : true, "matchedCount" : 8, "modifiedCount" : 8 }
+
+We can also delete documents that do not satisfy schema
+db.inventory.deleteMany( { $nor: [ { $jsonSchema: mySchema } ] } )
+=> { "acknowledged" : true, "deletedCount" : 8 }
+
+$mod
+Select documents where value of field divided by divisor has a specified remainder(i.e perform a modulo operation to select documents)
+
+use $mod to select documents
+Following query selects those documents in inventory collection where value of qty field modulo 5 is 0
+db.inventory.find({ qty: { $mod: [5, 0] } })
+=> { "_id" : ObjectId("5f8fb617d2c948ad7d81e7a7"), "item" : "journal", "qty" : 25, "size" : { "h" : 14, "w" : 21, "uom" : "cm" }, "instock" : true }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7a8"), "item" : "notebook", "qty" : 50, "size" : { "h" : 8.5, "w" : 11, "uom" : "in" }, "instock" : true }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7ab"), "item" : "postcard", "qty" : 45, "size" : { "h" : 10, "w" : 15.25, "uom" : "cm" }, "instock" : true }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7ac"), "item" : "apple", "qty" : 45, "status" : "A", "instock" : true }
+  { "_id" : ObjectId("5f8fb617d2c948ad7d81e7ad"), "item" : "pears", "qty" : 50, "status" : "A", "instock" : true }
+
+
+$regex
+$regex provides Regular Expression capabilities for pattern matching strings in queries. MongoDB uses Perl Compatible Regular Expressions (PCRE) with UTF-8 support
+Syntaxes:
+1. { <field>: { $regex: /pattern/, $options: '<options>' } }
+2. { <field>: { $regex: 'pattern', $options: '<options>' } }
+3. { <field>: { $regex: /pattern/<options>' } }
+
+Below are the <options> available
+1. i => case insensitivity to match upper & lower cases
+2. m => for patterns that include anchor (i.e ^ for start & $ for end) match at beginning or end of each line for strings with multiline values. Without this option, these anchors match at beginning or end of the strings.
+   If pattern contains no anchors or if the string value has no new line characters, m option has no effect
+3. x => 'Extended' capability to ignore white space characters in $regex, It requires $regex with $options syntax
+4. s => Allows dot character to match all characters including new line. It requires $regex with $options syntax
+
+$text
+$text performs a text search on the content of field indexed with a text index
+Syntax: 
+{
+  $text: {
+    $search: <string>,
+    $language: <string>,
+    $caseSensitive: <boolean>,
+    $diacriticSensitive: <boolean>
+  }
+}
+
+$search: String of terms that MongoDb parses and uses to query text index. MongoDB performs a logical OR search of terms unless specified as a phrase
+$language: This determines list of stop words for the search and rules for the stemmer and tokenizer. If not specified, search uses default language of index. If you specify language value as 'none', text search uses simple tokenization with no list of stop words and no stemming
+$caseSensitive: Boolean flag to enable/disable case sensitive search. Defaults to false i.e search defers to case insensitivity of text index
+$diacriticSensitive: Boolean flag to enable/disable diacritic sensitive search against v3 text indexes. Defaults to false i.e search defers to diacritic insensitivity of text index
+
+Dataset:
+db.articles.createIndex( { subject: "text" } )
+=> {
+    "createdCollectionAutomatically" : true,
+    "numIndexesBefore" : 1,
+    "numIndexesAfter" : 2,
+    "ok" : 1
+  }
+
+db.articles.insert([
+  { _id: 1, subject: "coffee", author: "xyz", views: 50 },
+  { _id: 2, subject: "Coffee Shopping", author: "efg", views: 5 },
+  { _id: 3, subject: "Baking a cake", author: "abc", views: 90  },
+  { _id: 4, subject: "baking", author: "xyz", views: 100 },
+  { _id: 5, subject: "Café Con Leche", author: "abc", views: 200 },
+  { _id: 6, subject: "Сырники", author: "jkl", views: 80 },
+  { _id: 7, subject: "coffee and cream", author: "efg", views: 10 },
+  { _id: 8, subject: "Cafe con Leche", author: "xyz", views: 10 }
+])
+
+Search for single word
+Below query returns documents that contains term coffee in indexed subject field or more precisely, stemmed version of word
+db.articles.find({ $text: { $search: 'coffee' } })
+=> { "_id" : 1, "subject" : "coffee", "author" : "xyz", "views" : 50 }
+  { "_id" : 7, "subject" : "coffee and cream", "author" : "efg", "views" : 10 }
+  { "_id" : 2, "subject" : "Coffee Shopping", "author" : "efg", "views" : 5 }
+
+Match any of search terms
+Below query returns documents that contain either bake or coffee or cake in indexed subject field or more precisely, stemmed version of word
+If search string is a space-delimited string, $text operator performs logical OR search on each term and returns documents whose field contain any of the term
+db.articles.find({ $text: { $search: 'bake coffee cake' } })
+=> { "_id" : 4, "subject" : "baking", "author" : "xyz", "views" : 100 }
+  { "_id" : 3, "subject" : "Baking a cake", "author" : "abc", "views" : 90 }
+  { "_id" : 1, "subject" : "coffee", "author" : "xyz", "views" : 50 }
+  { "_id" : 7, "subject" : "coffee and cream", "author" : "efg", "views" : 10 }
+  { "_id" : 2, "subject" : "Coffee Shopping", "author" : "efg", "views" : 5 }
+
+Search for phrase
+Following query searches for phrase 'coffee shop'
+db.articles.find({ $text: { $search: "\"coffee shop\"" } })
+=> { "_id" : 2, "subject" : "Coffee Shopping", "author" : "efg", "views" : 5 }
+
+Exclude documents that contains a term
+A negated term is a term that is prefixed with - sign. If we negate a term, $text operator will exclude the documents that contain the term from results.
+Below query searches for documents that contain the word coffee but do not contain word shop
+db.articles.find({ $text: { $search: 'coffee -shop' } })
+=> { "_id" : 1, "subject" : "coffee", "author" : "xyz", "views" : 50 }
+  { "_id" : 7, "subject" : "coffee and cream", "author" : "efg", "views" : 10 }
+
+$where
+$where operator can be used to pass either a string containing JavaScript expression or a full JavaScript function to query system. $where operator provides greater flexibility but requires that the database processes the JavaScript expression or function for each document in collection
+Dataset:
+db.players.insertMany([
+   { name: "Steve", username: "steveisawesome", first_login: "2017-01-01" },
+   { name: "Anya", username: "anya", first_login: "2001-02-02" }
+])
+
+Below query uses $where and hex_md5() JavaScript function to compare value of name field to an MD5 hash and returns matching document
+db.players.find({ $where: function(){
+  return hex_md5(this.name) == '9b53e667f30cd329dca1ec9e6a83e994'
+} })
+=> { "_id" : ObjectId("5f8fcd97d2c948ad7d81e7af"), "name" : "Anya", "username" : "anya", "first_login" : "2001-02-02" }
+
+As an alternative, above query can be written with $expr and $function. Starting with MongoDB 4.4, we can define custom aggregation expression in JavaScript with aggregation operator $function. To access $function and other aggregation operators, use $expr
+db.players.find( { $expr: {
+  $function: {
+    body: function(name) {
+      return hex_md5(name) == '9b53e667f30cd329dca1ec9e6a83e994'
+    },
+    args: ['$name'],
+    lang: 'js'
+  }
+} } )
+=> { "_id" : ObjectId("5f8fcd97d2c948ad7d81e7af"), "name" : "Anya", "username" : "anya", "first_login" : "2001-02-02" }
+
+If we must create custom expressions, $function is preferred over $where
+
+Array Query Operators
+
+$all: Matches arrays that contains all elements specified in query
+$all operator selects the documents where value of field is in an array that contains all specified elements.
+
+Equivalent to $and
+{ tags: { $all: ['ssl', 'security'] } } is equivalent to { $and: [ { $tags: 'ssl' }, { $tags: 'security' } ] }
+
+Dataset:
+db.inventory.insertMany([
+  { code: "xyz", tags: [ "school", "book", "bag", "headphone", "appliance" ], qty: [ { size: "S", num: 10, color: "blue" }, { size: "M", num: 45, color: "blue" }, { size: "L", num: 100, color: "green" } ] },
+  { code: "abc", tags: [ "appliance", "school", "book" ], qty: [ { size: "6", num: 100, color: "green" }, { size: "6", num: 50, color: "blue" }, { size: "8", num: 100, color: "brown" } ] },
+  { code: "efg", tags: [ "school", "book" ], qty: [ { size: "S", num: 10, color: "blue" }, { size: "M", num: 100, color: "blue" }, { size: "L", num: 100, color: "green" } ] },
+  { code: "ijk", tags: [ "electronics", "school" ], qty: [ { size: "M", num: 100, color: "green" } ] }
+])
+
+$all to match values
+Below operation uses $all operator to query the inventory collection for documents where value of tags field is an array whose elements include appliance, school and book
+db.inventory.find({ tags: { $all: ['appliance', 'school', 'book'] } })
+=> { "_id" : ObjectId("5f8fd30cd2c948ad7d81e7b0"), "code" : "xyz", "tags" : [ "school", "book", "bag", "headphone", "appliance" ], "qty" : [ { "size" : "S", "num" : 10, "color" : "blue" }, { "size" : "M", "num" : 45, 
+  "color" : "blue" }, { "size" : "L", "num" : 100, "color" : "green" } ] }
+  { "_id" : ObjectId("5f8fd30cd2c948ad7d81e7b1"), "code" : "abc", "tags" : [ "appliance", "school", "book" ], "qty" : [ { "size" : "6", "num" : 100, "color" : "green" }, { "size" : "6", "num" : 50, "color" : "blue" }, { "size" : "8", "num" : 100, "color" : "brown" } ] }
+
+$elemMatch
+$elemmatch operator matches documents that contain an array field with atleast one element that matches all specified query criteria
+1. We cannot specify $where expression in an $elemMatch
+2. We cannot specify $text expression in an $elemMatch
+
+Dataset
+db.scores.insertMany([
+  { results: [ 82, 85, 88 ] },
+  { results: [ 75, 88, 89 ] }
+])
+
+Below query matches only those documents where results array contain at least one element that is both greater than 80 & less than 85
+db.scores.find({
+  results: {
+    $elemMatch: {
+      $gte: 80,
+      $lt: 85
+    }
+  }
+})
+=> { "_id" : ObjectId("5f8fd5f7d2c948ad7d81e7b4"), "results" : [ 82, 85, 88 ] }
+Above document is returned because element 82 is both greater than 80 & less than 85
+
+Array of embedded documents
+Dataset
+db.survey.insertMany( [
+  { "results": [ { "product": "abc", "score": 10 }, { "product": "xyz", "score": 5 } ] },
+  { "results": [ { "product": "abc", "score": 8 }, { "product": "xyz", "score": 7 } ] },
+  { "results": [ { "product": "abc", "score": 7 }, { "product": "xyz", "score": 8 } ] },
+  { "results": [ { "product": "abc", "score": 7 }, { "product": "def", "score": 8 } ] }
+])
+
+Below query matches only those documents where results array contain at least one element with product equal to 'xyz' and score is greater than or equal to 8
+db.survey.find({
+  results: {
+    $elemMatch: {
+      product: 'xyz',
+      score: { $gte: 8 }
+    }
+  }
+})
+=> { "_id" : ObjectId("5f8fd6e4d2c948ad7d81e7b8"), "results" : [ { "product" : "abc", "score" : 7 }, { "product" : "xyz", "score" : 8 } ] }
+
+$size
+$size operator matches any array with number of elements specified by argument
+db.collection.find( { field: { $size: 1 } } )
+$size does not accept range of values
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Aggregation
+Aggregation operations process data records and return computed results. Aggregation operations group values from multiple documents together and can perform variety of operations on grouped data to return single result. MongoDB provides three ways to perform aggregation.
+1. Aggregation Pipelines: 
+  MongoDB's aggregation framework is modeled on concept of data processing pipelines. Document enters a multi stage pipeline that transforms it to an aggregated result.
+  Eg. db.orders.aggregate([
+        { $match: { status: 'A' } },
+        { $group: { _id: '$cust_id', total: { $sum: '$amount' } } }
+      ])
+  First stage: The $match stage filters documents by status field and passes documents whose status is 'A'  to next stage
+  Second Stage: The $group stage groups the documents by cust_id field to calculate the sum of amount for each unique cust_id
+
+  1. Most basic pipeline stages provide filters that operate like queries and document transformations that modify the form of output document
+  2. Other pipeline operations provide tools for grouping and sorting documents by specific field or fields as well as tools for aggregating the content of arrays, including arrays of documents. 
+  3. In addition, pipeline stages can use operators for tasks like calculating averages or concatenating strings
+  4. Pipeline provides efficient data aggregation using native operations withing MongoDB and is preferred method for data aggregation
+  5. Aggregation pipelines can use indexes to improve its performance during some of its stages. In addition, the aggregation pipeline has an internal optimization phase.
+
+2. Map-Reduce function
+  MongoDb also provides map-reduce operations to perform aggregation. Map-Reduce use custom JavaScript functions to perform map & reduce operations as well as optional finalize operation
+  Eg. db.orders.mapReduce(
+        function() {
+          emit(this.cust_id, this.amount)
+        }, function(key, values) {
+          return Array.sum(values)
+        }, {
+          query: { status: 'A' },
+          out: 'order_details'
+        }
+      )
+
+3. Single purpose aggregation methods
+  MongoDB also provides db.collection.estimatedDocumentCount(), db.collection.count() & db.collection.distinct(). All these operations aggregate documents from single collection. While these operations provide simple access to common aggregation processes, they lack flexbility & capabilities of aggregation pipelines and map-reduce
+  Eg. db.orders.distinct('cust_id')
+
+Aggregation pipeline: 
+MongoDB Pipeline consist of stages. Each stage transforms the documents as they pass through pipeline. Pipeline stages do not need to produce one output document for every input document eg. some stages may generate new documents or filter out existing documents.
+MongoDB provides db.collection.aggregate() method in mongo shell and aggregate command to run aggregation pipeline
+Starting with MongoDB 4.2, we can use aggregation pipeline for updates in findAndModify & update 
